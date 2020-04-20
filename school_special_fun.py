@@ -16,7 +16,7 @@ import os
 import copy
 import json
 import requests
-
+import numpy as np
 
 from bs4 import BeautifulSoup
 
@@ -498,14 +498,97 @@ def _sichuandaxue(soup,title_info,outf):
 
 def _chongqinggongchengxueyuan(soup,title_info,outf):
     uncrawl = False
-    #抓科类和最低分。
-    pass
+    table_content = soup.find_all('table')
+    if len(table_content):
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        if len(rows) == 4:
+            ds = [td.get_text(strip=True) for td in rows[2].find_all('td')]
+            tmp = copy.deepcopy(title_info)
+            tmp['批次'] = ds[1]
+            tmp_score = ds[4]
+            tmp['最低分'] = float(tmp_score.split('分')[0])
+            outf.write(json.dumps(tmp)+'\n')       
+        else:
+            if title_info['科类'] == '艺术':
+                ds = [td.get_text(strip=True) for td in rows[3].find_all('td')]
+                tmp = copy.deepcopy(title_info)
+                tmp['批次'] = ds[1]
+                tmp['最低分'] = float(ds[4])
+                outf.write(json.dumps(tmp)+'\n')
+            else:
+                ds_art = [td.get_text(strip=True) for td in rows[3].find_all('td')]
+                ds_science = [td.get_text(strip=True) for td in rows[4].find_all('td')]
+                tmp1 = copy.deepcopy(title_info)
+                tmp2 = copy.deepcopy(title_info)
+                tmp1['批次'] = ds_art[0]
+                tmp2['批次'] = ds_art[0]
+                tmp1['科类'] = '文史'
+                tmp2['科类'] = '理工'
+                tmp1['最低分'] = float(ds_art[3])
+                tmp2['最低分'] = float(ds_science[2])
+                outf.write(json.dumps(tmp1)+'\n')
+                outf.write(json.dumps(tmp2)+'\n')
+    else:
+        uncrawl = False
+    return uncrawl
+
+
+def _hubeidaxue(soup,title_info,outf):
+    uncrawl = False
+    table_content = soup.find_all('table')
+    if len(table_content): 
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        if title_info['科类'] == '体育' or title_info['科类'] == '艺术':
+            for i in range(3,len(rows)):
+                ds = [td.get_text(strip=True) for td in rows[i].find_all('td')]
+                tmp = copy.deepcopy(title_info)
+                tmp['批次'] = ds[2]
+                tmp['专业'] = ds[3]
+                tmp['最高分'] = float(ds[4])
+                tmp['最低分'] = float(ds[5])
+                outf.write(json.dumps(tmp)+'\n')
+        elif title_info['科类'] == '理工' or title_info['科类'] == '文史' or title_info['科类'] == '综合':
+                row1 = [td.get_text(strip=True) for td in rows[0].find_all('td')]
+                row3 = [td.get_text(strip=True) for td in rows[2].find_all('td')] 
+                tmp = copy.deepcopy(title_info)       
+                tmp['科类'] = row1[-1]
+                tmp['最高分'] = float(row3[2])
+                tmp['最低分'] = float(row3[3])    
+                outf.write(json.dumps(tmp)+'\n')
+        else:
+            uncrawl = True
+    else:
+        uncrawl = True
+    return uncrawl    
+
+
+def _shandongzhengzhiqingnianxueyuan(soup,title_info,outf):
+    uncrawl = False
+    table_content = soup.find_all('table')
+    if len(table_content): 
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        for i in range(2,len(rows)):
+            ds = [td.get_text(strip=True) for td in rows[i].find_all('td')]
+            for sub,index in zip(['文史','理工'],[[3,4,5],[6,7,8]]):
+                tmp = copy.deepcopy(title_info) 
+                tmp['专业'] = sub
+                tmp['最高分'] = is_num_by_except(ds[index[0]])
+                tmp['最低分'] = is_num_by_except(ds[index[1]])
+                tmp['平均分'] = is_num_by_except(ds[index[2]])
+                outf.write(json.dumps(tmp)+'\n')
+    else:
+        uncrawl = True
+    return uncrawl        
+    
 #%%
-import numpy as np
+
 with open(r"""C:\Myfile\File\学业资料\测评产品/scoreline_title_url.json""",'r') as f:
              title_url = json.load(f)    
 
-school_name = '重庆工程学院'
+school_name = '山东青年政治学院'
 
 res_title = np.load(r'C:\Myfile\File\学业资料\测评产品\Data\crawl_log/third_crawl_residue.npy')
 res_num = []
@@ -525,14 +608,14 @@ else:
 print(title_url[res_num[0]])
 #%%
 uncrawl_list = []
-for title in res_num:
+for title in the_school:
     url = title_url[title]
-    uncrawl = get_admission_info(title, url,_sichuandaxue)
+    uncrawl = get_admission_info(title, url,_shandongzhengzhiqingnianxueyuan)
     uncrawl_list.append(uncrawl)
 
 #%%
 vali = []
-with open(r'C:\Myfile\File\学业资料\测评产品\Data\raw\北京农学院/raw_admission_info@北京农学院2019年贵州省本科预科录取分数线.json','r') as f:
+with open(r'C:\Myfile\File\学业资料\测评产品\Data\raw\湖北大学/raw_admission_info@湖北大学2019年云南普通本科（文史类）录取分数线.json','r') as f:
     for line in f.readlines():
         dic = json.loads(line)
         vali.append(dic)
