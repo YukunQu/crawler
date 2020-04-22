@@ -300,28 +300,6 @@ def _fujiangongchengxueyuan(soup,title_info,outf):
     return uncrawl
 
 
-def _huazhongkejidaxue(soup,title_info,outf):
-    table_content = soup.find_all('table')
-    if len(table_content):
-        table_content = table_content[0]
-        rows = table_content.findAll(lambda tag: tag.name=='tr')
-        
-        ks = [td.get_text(strip=True) for td in rows[0].find_all('td')]
-        
-        for i in range(1, len(rows)):
-            ds = [td.get_text(strip=True) for td in rows[i].find_all('td')]
-            if len(ks)==len(ds):
-                # save data
-                tmp = copy.deepcopy(title_info)
-                tmp.update(dict(zip(ks, ds)))       
-                outf.write(json.dumps(tmp)+'\n')
-            else:
-                uncrawl = True           
-    else:
-            uncrawl = True
-    return uncrawl
-
-
 def _shanghaijidianxueyuan(soup,title_info,outf):
     uncrawl = False
     table_content = soup.find_all('table')
@@ -423,32 +401,6 @@ def _huananshifandaxue(soup,title_info,outf):
     else:
         uncrawl = True
     return  uncrawl
-
-
-def _beijingnongxueyuan(soup,title_info,outf):
-    uncrawl = False
-    text = soup.find_all('div',{'class':'main'})
-    text = text[0].get_text(strip=True)
-    score = re.findall('最低录取分(.*?)分|最低分(.*?)分|录取最低分(.*?)分',text)
-    print(score)
-    if len(score):
-        tmp = copy.deepcopy(title_info)
-        tmp['科类'] = None
-        tmp['最低分'] = is_num_by_except(score[0])
-        outf.write(json.dumps(tmp)+'\n')
-    else:
-        tmp1 = copy.deepcopy(title_info)
-        tmp2 = copy.deepcopy(title_info)
-        tmp1['科类'] = '理工'
-        tmp2['科类'] = '文史'
-        s1 =  re.findall('理工最低(.*?)分|理工类最低分(.*?)。',text)
-        s2 = re.findall('文史最低(.*?)分|文史类最低分(.*?)，',text)
-        print(s1,s2)
-        tmp1['最低分'] = s1[0]
-        tmp2['最低分'] = s2[0]
-        outf.write(json.dumps(tmp1)+'\n')
-        outf.write(json.dumps(tmp2)+'\n')
-    return uncrawl     
 
 
 def _sichuandaxue(soup,title_info,outf):
@@ -582,13 +534,191 @@ def _shandongzhengzhiqingnianxueyuan(soup,title_info,outf):
     else:
         uncrawl = True
     return uncrawl        
-    
-#%%
 
+
+def _shandongzhengzhiqingnianxueyuan_yishu(soup,title_info,outf):
+    uncrawl = False
+    table_content = soup.find_all('table')
+    if len(table_content): 
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        for i in range(2,len(rows)):
+            ds = [td.get_text(strip=True) for td in rows[i].find_all('td')]
+            ds = ds[3:]
+            if i < 7:
+                tmp = copy.deepcopy(title_info) 
+                tmp['专业'] = '播音与主持艺术'
+                tmp['省份'] = ds[0]
+                tmp['文化课最高分'] = is_num_by_except(ds[1])
+                tmp['文化课最低分'] = is_num_by_except(ds[2])
+                tmp['专业课最高分'] = is_num_by_except(ds[3])
+                tmp['专业课最低分'] = is_num_by_except(ds[4])
+                outf.write(json.dumps(tmp)+'\n')
+            for sub,index in zip(['文史','理工'],[[3,4,5],[6,7,8]]):
+                tmp = copy.deepcopy(title_info) 
+                tmp['专业'] = sub
+                tmp['最高分'] = is_num_by_except(ds[index[0]])
+                tmp['最低分'] = is_num_by_except(ds[index[1]])
+                tmp['平均分'] = is_num_by_except(ds[index[2]])
+                outf.write(json.dumps(tmp)+'\n')
+    else:
+        uncrawl = True
+    return uncrawl      
+
+
+def _huazhongkejidaxue(soup,title_info,outf):
+    uncrawl = False
+    table_content = soup.find_all('table')
+    if len(table_content):
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        for i in range(2,len(rows)):
+            ds = [td.get_text(strip=True) for td in rows[i].find_all('td')]
+            tmp = copy.deepcopy(title_info) 
+            subject = ds[1]
+            for s in ['理工','文史']: 
+                if s in subject:
+                    subject = s
+            tmp['科类'] = subject
+            tmp['最高分'] = float(ds[2]) 
+            tmp['最低分'] = float(ds[3])
+            print(subject,float(ds[2]) ,float(ds[3]))
+            outf.write(json.dumps(tmp)+'\n')
+    return uncrawl
+
+
+def _qingdaokejidaxue_yishu(soup,title_info,outf):
+    # get score table
+    uncrawl = False
+    table_content = soup.find_all('table')
+    if len(table_content):
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        
+        ks = ['专业',"类别","录取人数","文化成绩最高分","文化成绩最低分",
+              "文化成绩平均分","专业成绩最高分","专业成绩最低分","专业成绩平均分",
+              "综合成绩最高分","综合成绩最低分","综合成绩平均分"]
+        for i in range(3, len(rows)):
+            ds = [td.get_text(strip=True) for td in rows[i].find_all('td')]
+            print(len(ds))
+            if len(ks)==len(ds):
+                # save data
+                tmp = copy.deepcopy(title_info)
+                tmp.update(dict(zip(ks, ds)))       
+                outf.write(json.dumps(tmp)+'\n')
+            else:
+                uncrawl = True           
+    else:
+        uncrawl = True    
+    return uncrawl
+
+
+def _qingdaokejidaxue_zwhb(soup,title_info,outf):
+    # get score table
+    uncrawl = False
+    table_content = soup.find_all('table')
+    if len(table_content):
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        
+        ks = ['专业',"科类","最高分","最低分",'平均分']
+        for i in range(4, len(rows)):
+            if i in [14,15,16,17]:
+                continue
+            ds = [td.get_text(strip=True) for td in rows[i].find_all('td')]
+            print(len(ds))
+            if len(ks)==len(ds):
+                # save data
+                tmp = copy.deepcopy(title_info)
+                tmp.update(dict(zip(ks, ds)))       
+                outf.write(json.dumps(tmp)+'\n')
+            else:
+                uncrawl = True           
+    else:
+        uncrawl = True    
+    return uncrawl
+
+
+def _qingdaokejidaxue_zhpj(soup,title_info,outf):
+    # get score table
+    uncrawl = False
+    table_content = soup.find_all('table')
+    if len(table_content):
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        
+        ks = ['专业',"高考最高分","高考最低分",'高考平均分',
+              "综合最高分","综合最低分",'综合平均分']
+        for i in range(3, len(rows)):
+            ds = [td.get_text(strip=True) for td in rows[i].find_all('td')]
+            ds = ds[-7:]
+            if len(ks)==len(ds):
+                # save data
+                tmp = copy.deepcopy(title_info)
+                tmp.update(dict(zip(ks, ds)))       
+                outf.write(json.dumps(tmp)+'\n')
+            else:
+                uncrawl = True           
+    else:
+        uncrawl = True    
+    return uncrawl
+
+
+
+def _beijingnongxueyuan(soup,title_info,outf):
+    uncrawl = False
+    text = soup.find_all('div',{'class':'main'})
+    text = text[0].get_text(strip=True)
+    score = re.findall('最低录取分(.*?)分|最低分(.*?)分|录取最低分(.*?)分',text)
+    if len(score):
+        tmp = copy.deepcopy(title_info)
+        tmp['科类'] = None
+        tmp['最低分'] = is_num_by_except(score[0][0])
+        print(tmp['最低分'])
+        outf.write(json.dumps(tmp)+'\n')
+    else:
+        tmp1 = copy.deepcopy(title_info)
+        tmp2 = copy.deepcopy(title_info)
+        tmp1['科类'] = '理工'
+        tmp2['科类'] = '文史'
+        s1 =  re.findall('理工最低(.*?)分|理工类最低分(.*?)。',text)
+        s2 = re.findall('文史最低(.*?)分|文史类最低分(.*?)，',text)
+        print(s1[0],s2[0])
+        tmp1['最低分'] = s1[0]
+        tmp2['最低分'] = s2[0]
+        outf.write(json.dumps(tmp1)+'\n')
+        outf.write(json.dumps(tmp2)+'\n')
+    return uncrawl     
+
+
+def _xiamengongxueyuan(soup,title_info,outf):
+    uncrawl = False
+    table_content = soup.find_all('table')
+    if len(table_content):
+        table_content = table_content[0]
+        rows = table_content.findAll(lambda tag: tag.name=='tr')
+        ds = [td.get_text(strip=True) for td in rows[-1].find_all('td')]
+        ks = ['批次',"最低分","平均分"]
+        
+        tmp = copy.deepcopy(title_info)
+        tmp['科类'] = '文史'
+        ds_wen = [ds[3],ds[-4],ds[-2]]
+        tmp.update(zip(ks,ds_wen))
+        outf.write(json.dumps(tmp)+'\n')
+        
+        tmp = copy.deepcopy(title_info)
+        tmp['科类'] = '理工'
+        ds_wen = [ds[3],ds[-3],ds[-1]]
+        tmp.update(zip(ks,ds_wen))
+        outf.write(json.dumps(tmp)+'\n')       
+    else:
+        uncrawl = True    
+    return uncrawl
+#%%
 with open(r"""C:\Myfile\File\学业资料\测评产品/scoreline_title_url.json""",'r') as f:
              title_url = json.load(f)    
 
-school_name = '山东青年政治学院'
+school_name = '上海电机学院'
 
 res_title = np.load(r'C:\Myfile\File\学业资料\测评产品\Data\crawl_log/third_crawl_residue.npy')
 res_num = []
@@ -605,17 +735,18 @@ if len(the_school) == len(res_num):
 else:
     print('The part of url have been crawled.')
 
-print(title_url[res_num[0]])
+print(title_url[the_school[0]])
+
 #%%
 uncrawl_list = []
 for title in the_school:
     url = title_url[title]
-    uncrawl = get_admission_info(title, url,_shandongzhengzhiqingnianxueyuan)
+    uncrawl = get_admission_info(title, url,_xiamengongxueyuan)
     uncrawl_list.append(uncrawl)
 
 #%%
 vali = []
-with open(r'C:\Myfile\File\学业资料\测评产品\Data\raw\湖北大学/raw_admission_info@湖北大学2019年云南普通本科（文史类）录取分数线.json','r') as f:
+with open(r'C:\Myfile\File\学业资料\测评产品\Data\raw\厦门工学院/raw_admission_info@厦门工学院2019年宁夏本二批录取分数线.json','r') as f:
     for line in f.readlines():
         dic = json.loads(line)
         vali.append(dic)
